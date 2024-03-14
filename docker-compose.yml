@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  notasapp:
+    image: camiloarroyo/notas-app:v1.0
+    deploy:
+      replicas: 3
+    ports:
+      - "4200:80"  
+  sqlserver:
+    image: camiloarroyo/sqlserver:v1.0
+    deploy:
+      replicas: 1
+    ports:
+      - "1433:1433"  
+  apinotascont:
+    image: camiloarroyo/api-notas:v1.0
+    deploy:
+      replicas: 2
+    ports:
+      - "8081:8080"  
