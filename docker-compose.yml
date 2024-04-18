@@ -6,13 +6,7 @@ services:
     deploy:
       replicas: 3
     ports:
-      - "4200:80"  
-  sqlserver:
-    image: camiloarroyo/sqlserver:v1.0
-    deploy:
-      replicas: 1
-    ports:
-      - "1433:1433"  
+      - "4201:80"   
   apinotascont:
     image: camiloarroyo/api-notas:v1.0
     deploy:
