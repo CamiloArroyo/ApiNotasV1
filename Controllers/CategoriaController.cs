@@ -1,8 +1,11 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using ApiNotas.Models;
+using System;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Cors;
+using MongoDB.Driver;
+using MongoDB.Bson;
 
 namespace ApiAlmacen.Controllers
 {
@@ -11,32 +14,27 @@ namespace ApiAlmacen.Controllers
     [ApiController]
     public class CategoriaController : ControllerBase
     {
-        public readonly NotasContext _dbcontext;
+        private readonly NotasContext _dbcontext;
 
-        public CategoriaController(NotasContext _context)
+        public CategoriaController(NotasContext context)
         {
-            _dbcontext = _context;
+            _dbcontext = context;
         }
 
         [HttpGet]
         [Route("listaCatalogos")]
         public IActionResult Lista()
         {
-            List<Categoria> lista = new List<Categoria>();
-
             try
             {
-                lista = _dbcontext.Categorias.Include(s=>s.Notas).ToList();
-
+                var lista = _dbcontext.Categorias.Find(_ => true).ToList();
                 return StatusCode(StatusCodes.Status200OK, new { mensaje = "ok", response = lista });
             }
-            catch (Exception ex) {
-
-                return StatusCode(StatusCodes.Status200OK, new { mensaje = ex.Message, response = lista });
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { mensaje = ex.Message });
             }
-
         }
-
 
         [HttpPost]
         [Route("crearCategoria")]
@@ -44,9 +42,8 @@ namespace ApiAlmacen.Controllers
         {
             try
             {
-                _dbcontext.Categorias.Add(categoria);
-                _dbcontext.SaveChanges();
-                return Ok(new { mensaje = "Categoria creada exitosamente", categoria });
+                _dbcontext.Categorias.InsertOne(categoria);
+                return Ok(new { mensaje = "Categoría creada exitosamente", categoria });
             }
             catch (Exception ex)
             {
@@ -56,15 +53,16 @@ namespace ApiAlmacen.Controllers
 
         [HttpPut]
         [Route("editarCategoria/{id}")]
-        public IActionResult Editar(int id, [FromBody] Categoria categoria)
+        public IActionResult Editar(string id, [FromBody] Categoria categoria)
         {
             try
             {
-                if (id != categoria.Id)
-                    return BadRequest(new { mensaje = "El ID de la categoría no coincide" });
+                var categoriaExistente = _dbcontext.Categorias.Find(c => c.Id == id).FirstOrDefault();
+                if (categoriaExistente == null)
+                    return NotFound(new { mensaje = "Categoría no encontrada" });
 
-                _dbcontext.Entry(categoria).State = EntityState.Modified;
-                _dbcontext.SaveChanges();
+                categoria.Id = categoriaExistente.Id; // Mantenemos el mismo ID
+                _dbcontext.Categorias.ReplaceOne(c => c.Id == id, categoria);
                 return Ok(new { mensaje = "Categoría actualizada exitosamente", categoria });
             }
             catch (Exception ex)
@@ -75,16 +73,14 @@ namespace ApiAlmacen.Controllers
 
         [HttpDelete]
         [Route("eliminarCategoria/{id}")]
-        public IActionResult Eliminar(int id)
+        public IActionResult Eliminar(string id)
         {
             try
             {
-                var categoria = _dbcontext.Categorias.Find(id);
-                if (categoria == null)
+                var resultado = _dbcontext.Categorias.DeleteOne(c => c.Id == id);
+                if (resultado.DeletedCount == 0)
                     return NotFound(new { mensaje = "Categoría no encontrada" });
 
-                _dbcontext.Categorias.Remove(categoria);
-                _dbcontext.SaveChanges();
                 return Ok(new { mensaje = "Categoría eliminada exitosamente" });
             }
             catch (Exception ex)
@@ -94,6 +90,4 @@ namespace ApiAlmacen.Controllers
         }
 
     }
-
-
 }

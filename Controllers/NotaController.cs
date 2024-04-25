@@ -1,8 +1,11 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using ApiNotas.Models;
+using System;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Cors;
+using MongoDB.Driver;
+using MongoDB.Bson;
 
 namespace ApiAlmacen.Controllers
 {
@@ -11,32 +14,27 @@ namespace ApiAlmacen.Controllers
     [ApiController]
     public class NotaController : ControllerBase
     {
-        public readonly NotasContext _dbcontext;
+        private readonly NotasContext _dbcontext;
 
-        public NotaController(NotasContext _context)
+        public NotaController(NotasContext context)
         {
-            _dbcontext = _context;
+            _dbcontext = context;
         }
 
         [HttpGet]
         [Route("listaNotas")]
         public IActionResult Lista()
         {
-            List<Nota> lista = new List<Nota>();
-
             try
             {
-                lista = _dbcontext.Notas.ToList();
-
+                var lista = _dbcontext.Notas.Find(_ => true).ToList();
                 return StatusCode(StatusCodes.Status200OK, new { mensaje = "ok", response = lista });
             }
-            catch (Exception ex) {
-
-                return StatusCode(StatusCodes.Status200OK, new { mensaje = ex.Message, response = lista });
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { mensaje = ex.Message });
             }
-
         }
-
 
         [HttpPost]
         [Route("crearNota")]
@@ -44,8 +42,7 @@ namespace ApiAlmacen.Controllers
         {
             try
             {
-                _dbcontext.Notas.Add(nota);
-                _dbcontext.SaveChanges();
+                _dbcontext.Notas.InsertOne(nota);
                 return Ok(new { mensaje = "Nota creada exitosamente", nota });
             }
             catch (Exception ex)
@@ -56,15 +53,16 @@ namespace ApiAlmacen.Controllers
 
         [HttpPut]
         [Route("editarNota/{id}")]
-        public IActionResult Editar(int id, [FromBody] Nota nota)
+        public IActionResult Editar(string id, [FromBody] Nota nota)
         {
             try
             {
-                if (id != nota.Id)
-                    return BadRequest(new { mensaje = "El ID de la nota no coincide" });
+                var notaExistente = _dbcontext.Notas.Find(n => n.Id == id).FirstOrDefault();
+                if (notaExistente == null)
+                    return NotFound(new { mensaje = "Nota no encontrada" });
 
-                _dbcontext.Entry(nota).State = EntityState.Modified;
-                _dbcontext.SaveChanges();
+                nota.Id = notaExistente.Id; // Mantenemos el mismo ID
+                _dbcontext.Notas.ReplaceOne(n => n.Id == id, nota);
                 return Ok(new { mensaje = "Nota actualizada exitosamente", nota });
             }
             catch (Exception ex)
@@ -75,16 +73,14 @@ namespace ApiAlmacen.Controllers
 
         [HttpDelete]
         [Route("eliminarNota/{id}")]
-        public IActionResult Eliminar(int id)
+        public IActionResult Eliminar(string id)
         {
             try
             {
-                var nota = _dbcontext.Notas.Find(id);
-                if (nota == null)
+                var resultado = _dbcontext.Notas.DeleteOne(n => n.Id == id);
+                if (resultado.DeletedCount == 0)
                     return NotFound(new { mensaje = "Nota no encontrada" });
 
-                _dbcontext.Notas.Remove(nota);
-                _dbcontext.SaveChanges();
                 return Ok(new { mensaje = "Nota eliminada exitosamente" });
             }
             catch (Exception ex)
@@ -92,6 +88,5 @@ namespace ApiAlmacen.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new { mensaje = ex.Message });
             }
         }
-
     }
 }

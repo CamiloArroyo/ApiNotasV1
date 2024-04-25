@@ -1,8 +1,13 @@
-﻿namespace ApiNotas.Models
+﻿using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
+
+namespace ApiNotas.Models
 {
     public class Categoria
     {
-        public int Id { get; set; }
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? Id { get; set; }
         public string Nombre { get; set; }
         public DateTime FechaReg { get; set; } = DateTime.Now;
 
